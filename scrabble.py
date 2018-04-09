@@ -1,6 +1,7 @@
+import copy
 import random
 
-random.seed(9001)
+random.seed(1001)
 
 dictionary_file = 'dictionary.csv'
 
@@ -117,12 +118,19 @@ class Board(object):
         Loop through each row and each column to find where letters can be placed.
         Return is a 'find word' query spec
         """
+        for y in range(0, board_width):
+            found_at = list()
+            for x in range(0, board_width):
+                if self.Matrix[x][y].letter_value is not None:
+                    found_at.append(CellCoord(x, y,
+                                              self.Matrix[x][y]))
 
 
 class CellCoord(object):
-    def __init__(self):
-        self.x = 0
-        self.y = 0
+    def __init__(self, x, y, letter):
+        self.x = x
+        self.y = y
+        self.letter = letter
 
 
 class LookupSpec(object):
@@ -140,22 +148,41 @@ class BoardUser(object):
         while len(self.letters) < 7 and len(board_object.letter_pool) >= 0:
             self.letters.append(board_object.pull_random_letter_from_pool())
 
-    def find_word(self, lookup, match=None, position=None, max_len=None):
+    def find_word(self, lookup_dictionary, match=None, position=None,
+                  max_len=None):
         words = list()
-        for l in lookup:
-            word_length = 0
-            for i in self.letters:
-                if i[0].lower() in l:
-                    word_length += 1
+        for word in lookup_dictionary:
+            available_letters = copy.deepcopy(self.letters)
+            found_word = list()
 
-            if word_length >= len(l):
-                if match:
-                    if len(l) > position < max_len and l[position] == match:
-                        words.append(l)
-                else:
-                    words.append(l)
+            # First, see if we have the first character in the word
+            for w in word.upper():
+                letter_in_rack = False
+                for l in available_letters:
+                    if l[0] == w:
+                        letter_in_rack = True
+                        found_word.append(l)
+                        available_letters.remove(l)
+                        break
+
+                if not letter_in_rack:
+                    break
+
+            # see if we found all the letters
+            if len(found_word) == len(word):
+                words.append(word)
+            # Now check for conditions
+            # if word_length >= len(l):
+            #     if match:
+            #         if len(l) > position < max_len and l[position] == match:
+            #             words.append(l)
+            #     else:
+            #         words.append(l)
 
         return words
+
+    def print_rack(self):
+        print(self.letters)
 
 
 b = Board()
@@ -164,6 +191,9 @@ user2 = BoardUser()
 
 user1.refill(b)
 user2.refill(b)
+
+user1.print_rack()
+user2.print_rack()
 
 # load our dictionary
 dictionary = list()
@@ -175,28 +205,30 @@ with open(dictionary_file, 'r') as df:
 
 print('Dictionary length is {}'.format(len(dictionary)))
 
-words = user1.find_word(dictionary, 'c', 2, 5)
-print("{}".format(words))
+result_words = user1.find_word(dictionary, 'c', 2, 5)
+result_words = user1.find_word(dictionary)
 
-if len(words):
+print("{}".format(result_words))
+
+if len(result_words):
     # figure out which word
     best_score = 0
     best_score_index = -1
-    for w in range(0, len(words)):
+    for w in range(0, len(result_words)):
         cur_score = 0
-        for c in words[w]:
+        for c in result_words[w]:
             cur_score += get_letter_score(c)
 
         if cur_score > best_score:
             best_score = cur_score
             best_score_index = w
 
-    print("Best word was {} with a score of {}".format(words[best_score_index],
+    print("Best word was {} with a score of {}".format(result_words[best_score_index],
                                                        best_score))
 
-    half_len = len(words[best_score_index]) / 2
+    half_len = len(result_words[best_score_index]) / 2
     xpos = 8 - half_len
     xpos += ord('A')
 
-    b.place_word(words[best_score_index], (chr(xpos), 8), direction='left')
+    b.place_word(result_words[best_score_index], (chr(xpos), 8), direction='left')
     b.print_board()
